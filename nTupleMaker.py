@@ -1,7 +1,7 @@
 import FWCore.ParameterSet.Config as cms
 import sys
 
-ifname='file:/afs/cern.ch/cms/Tutorials/TWIKI_DATA/TTJets_8TeV_53X.root'
+ifname='file:skim_pat.root'
 ofname='nTuple.root'
 
 if len(sys.argv) > 2: ifname=sys.argv[2]
@@ -16,7 +16,7 @@ if ofname[0:4] != 'file:': ofname = 'file:' + ofname
 
 
 skipEvents=0
-maxEvents=100
+maxEvents=10
 
 ##########################################################
 
@@ -65,5 +65,14 @@ process.nTupler.addJets=False
 process.nTupler.addMET=False
 #process.nTupler.labelMuons = "globalMuons"
 
+process.nTupler.dumpHLT=cms.untracked.vstring(
+    "HLT_Ele22_eta2p1_WPLoose_Gsf_v3",
+    "HLT_IsoMu17_eta2p1_v3",
+    "HLT_IsoMu18_v2",
+    "HLT_IsoMu20_v3",
+    "HLT_IsoMu22_v2",
+    "HLT_IsoMu27_v3",
+    "HLT_Mu30_Ele30_CaloIdL_GsfTrkIdVL_v3"
+    )
 
 process.p = cms.Path(process.nTupler)

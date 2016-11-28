@@ -18,6 +18,8 @@
 
 //see also: https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookWriteFrameworkModule?LOCALSHELL=bash
 
+#define vstring std::vector<std::string>
+
 //#define ELECSCOLLTYPE reco::TrackCollection
 #define ELECSCOLLTYPE pat::ElectronCollection
 #define MUONSCOLLTYPE pat::MuonCollection
@@ -60,6 +62,9 @@
 #include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
 #include "SimDataFormats/GeneratorProducts/interface/GenRunInfoProduct.h"
 
+
+#include "FWCore/Common/interface/TriggerResultsByName.h"
+
 // Own source
 #include "event.h"
 
@@ -89,6 +94,7 @@ class nTupleMaker : public edm::EDAnalyzer {
       edm::EDGetTokenT< JETSCOLLTYPE > tok_jets_;
       edm::EDGetTokenT< METSCOLLTYPE > tok_METs_;
       edm::EDGetTokenT< GenEventInfoProduct > tok_gen_;
+      edm::EDGetTokenT< edm::TriggerResults > tok_HLT_;
       
       // cfg communication
       //unsigned int minTracks_;
@@ -105,6 +111,7 @@ class nTupleMaker : public edm::EDAnalyzer {
       std::string labelJets_;
       std::string labelMET_;
       std::string algoBTag_;
+      vstring dumpHLT_;
       //virtual void beginRun(edm::Run const&, edm::EventSetup const&) override;
       //virtual void endRun(edm::Run const&, edm::EventSetup const&) override;
       //virtual void beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
@@ -143,7 +150,8 @@ nTupleMaker::nTupleMaker(const edm::ParameterSet& iConfig):
    labelMuons_ ( iConfig.getUntrackedParameter<std::string>( "labelMuons" ) ),
    labelJets_ ( iConfig.getUntrackedParameter<std::string>( "labelJets" ) ),
    labelMET_ ( iConfig.getUntrackedParameter<std::string>( "labelMET" ) ),
-   algoBTag_ ( iConfig.getUntrackedParameter<std::string>( "algoBTag" ) )
+   algoBTag_ ( iConfig.getUntrackedParameter<std::string>( "algoBTag" ) ),
+   dumpHLT_ ( iConfig.getUntrackedParameter<vstring>( "dumpHLT" ) )
 {
    _debug=0;
    //now do what ever initialization is needed
@@ -156,6 +164,12 @@ nTupleMaker::nTupleMaker(const edm::ParameterSet& iConfig):
    tok_gen_ = consumes< GenEventInfoProduct >(edm::InputTag("generator"));
    eventTree->Branch("gen_weight",&myEvent.gen_weight,"gen_weight/D");
 
+   if (dumpHLT_.size() > 0){
+      tok_HLT_ = consumes< edm::TriggerResults >(edm::InputTag("TriggerResults::HLT"));
+      eventTree->Branch("HLT_n",&myEvent.ele_n,"ele_n/I");
+      eventTree->Branch("HLT_bits",&myEvent.HLT,"HLT_bits/I");
+   }
+   
    if (addElec_){
       tok_electrons_ = consumes< ELECSCOLLTYPE >(edm::InputTag(labelElec_));
       eventTree->Branch("ele_n",&myEvent.ele_n,"ele_n/I");
@@ -258,6 +272,34 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       //std::vector<double>& evtWeights = genEvtInfo->weights();
       myEvent.gen_weight = genEvtInfo->weight();
       if (_debug) std::cout << "Weight: " << myEvent.gen_weight << std::endl;
+   }
+
+   // Trigger bits
+   if (dumpHLT_.size() > 0){
+      
+      edm::Handle<edm::TriggerResults> triggerResults;;
+      iEvent.getByToken(tok_HLT_, triggerResults);
+      //edm::TriggerResultsByName tr(nullptr, nullptr);
+      if (!triggerResults.isValid()) {
+         throw cms::Exception("ProductNotFound") << "TriggerResults:HLT" << " product not found";
+      }
+      edm::TriggerResultsByName tr = iEvent.triggerResultsByName("HLT");
+      //edm::TriggerResultsByName tr = iEvent.triggerResultsByName(*triggerResults);
+         //cout << "Names:" << HTLbits_handle.triggerNames();
+   
+      //: Dump all triggers         
+      //unsigned i=tr.triggerIndex("");
+      //
+      //for (unsigned j=4; j<i; j++){
+      //   std::cout << tr[j].accept() << " : " << tr.triggerName(j) << std::endl;
+      //}
+         
+         
+      for( size_t i=0; i< dumpHLT_.size(); i++){ 
+         std::cout << dumpHLT_[i] << " (" << tr.triggerIndex(dumpHLT_[i]) << ") : accept " << tr[dumpHLT_[i]].accept()<< std::endl;
+      }
+
+
    }
    
    if (addElec_){

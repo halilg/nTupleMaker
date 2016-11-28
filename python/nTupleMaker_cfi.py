@@ -15,7 +15,8 @@ nTupler = cms.EDAnalyzer('nTupleMaker',
    labelMuons = cms.untracked.string("slimmedMuons"),
    labelJets = cms.untracked.string("slimmedJets"),
    labelMET = cms.untracked.string("slimmedMETs"),
-   algoBTag = cms.untracked.string("pfCombinedInclusiveSecondaryVertexV2BJetTags")
+   algoBTag = cms.untracked.string("pfCombinedInclusiveSecondaryVertexV2BJetTags"),
+   dumpHLT=cms.untracked.vstring("")
 )
 
 
