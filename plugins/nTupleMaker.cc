@@ -103,14 +103,13 @@ class nTupleMaker : public edm::EDAnalyzer {
       bool addMuons_;
       bool addJets_;
       bool addMET_;
-      bool addBTag_;
+      std::string bTagD_;
 
       std::string labelElec_;
       std::string labelPhot_;
       std::string labelMuons_;
       std::string labelJets_;
       std::string labelMET_;
-      std::string algoBTag_;
       vstring dumpHLT_;
       //virtual void beginRun(edm::Run const&, edm::EventSetup const&) override;
       //virtual void endRun(edm::Run const&, edm::EventSetup const&) override;
@@ -144,13 +143,12 @@ nTupleMaker::nTupleMaker(const edm::ParameterSet& iConfig):
    addMuons_(iConfig.getUntrackedParameter<bool>("addMuons",0)),
    addJets_(iConfig.getUntrackedParameter<bool>("addJets",0)),
    addMET_(iConfig.getUntrackedParameter<bool>("addMET",0)),
-   addBTag_(iConfig.getUntrackedParameter<bool>("addBTag",0)),
+   bTagD_(iConfig.getUntrackedParameter<std::string>("bTagD","")),
    labelElec_ ( iConfig.getUntrackedParameter<std::string>( "labelElec" ) ),
    labelPhot_ ( iConfig.getUntrackedParameter<std::string>( "labelPhot" ) ),
    labelMuons_ ( iConfig.getUntrackedParameter<std::string>( "labelMuons" ) ),
    labelJets_ ( iConfig.getUntrackedParameter<std::string>( "labelJets" ) ),
    labelMET_ ( iConfig.getUntrackedParameter<std::string>( "labelMET" ) ),
-   algoBTag_ ( iConfig.getUntrackedParameter<std::string>( "algoBTag" ) ),
    dumpHLT_ ( iConfig.getUntrackedParameter<vstring>( "dumpHLT" ) )
 {
    _debug=0;
@@ -166,8 +164,9 @@ nTupleMaker::nTupleMaker(const edm::ParameterSet& iConfig):
 
    if (dumpHLT_.size() > 0){
       tok_HLT_ = consumes< edm::TriggerResults >(edm::InputTag("TriggerResults::HLT"));
-      eventTree->Branch("HLT_n",&myEvent.ele_n,"ele_n/I");
-      eventTree->Branch("HLT_bits",&myEvent.HLT,"HLT_bits/I");
+      myEvent.HLT_n=dumpHLT_.size();
+      eventTree->Branch("HLT_n",&myEvent.HLT_n,"HLT_n/I");
+      eventTree->Branch("HLT_bits",&myEvent.HLT,"HLT_bits[HLT_n]/O");
    }
    
    if (addElec_){
@@ -216,7 +215,8 @@ nTupleMaker::nTupleMaker(const edm::ParameterSet& iConfig):
       eventTree->Branch("jet_phi",myEvent.jet_phi,"jet_phi[jet_n]/D");
       eventTree->Branch("jet_theta",myEvent.jet_theta,"jet_theta[jet_n]/D");
       eventTree->Branch("jet_eta",myEvent.jet_eta,"jet_eta[jet_n]/D");
-      
+      eventTree->Branch("jet_btagd",myEvent.jet_btagd,"jet_btagd[jet_n]/D");
+      //pfCombinedInclusiveSecondaryVertexV2BJetTags
       
       //jet_nhf = Branch("jet_nhf",myEvent.jet_nhf,"jet_nhf[jet_n]/D");
       //jet_nef = Branch("jet_nef",myEvent.jet_nef,"jet_nef[jet_n]/D");
@@ -228,13 +228,10 @@ nTupleMaker::nTupleMaker(const edm::ParameterSet& iConfig):
    
    if (addMET_){
       tok_METs_ = consumes< METSCOLLTYPE >(edm::InputTag(labelMET_));
-      eventTree->Branch("MET_n",&myEvent.MET_n,"MET_n/I");
-      eventTree->Branch("MET_px",myEvent.MET_px,"MET_px[MET_n]/D");
-      eventTree->Branch("MET_py",myEvent.MET_py,"MET_py[MET_n]/D");
-      eventTree->Branch("MET_pz",myEvent.MET_pz,"MET_pz[MET_n]/D");
-      eventTree->Branch("MET_phi",myEvent.MET_phi,"MET_phi[MET_n]/D");
-      eventTree->Branch("MET_theta",myEvent.MET_theta,"MET_theta[MET_n]/D");
-      eventTree->Branch("MET_eta",myEvent.MET_eta,"MET_eta[MET_n]/D");
+      eventTree->Branch("MET_px", &myEvent.MET_px,"MET_px/D");
+      eventTree->Branch("MET_py", &myEvent.MET_py,"MET_py/D");
+      eventTree->Branch("MET_phi", &myEvent.MET_phi,"MET_phi/D");
+      //eventTree->Branch("MET_theta", &myEvent.MET_theta,"MET_theta/D");
    }
    
 }
@@ -277,26 +274,31 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    // Trigger bits
    if (dumpHLT_.size() > 0){
       
-      edm::Handle<edm::TriggerResults> triggerResults;;
-      iEvent.getByToken(tok_HLT_, triggerResults);
+      //edm::Handle<edm::TriggerResults> triggerResults;;
+      //iEvent.getByToken(tok_HLT_, triggerResults);
       //edm::TriggerResultsByName tr(nullptr, nullptr);
-      if (!triggerResults.isValid()) {
-         throw cms::Exception("ProductNotFound") << "TriggerResults:HLT" << " product not found";
-      }
+      //if (!triggerResults.isValid()) {
+         //throw cms::Exception("ProductNotFound") << "TriggerResults:HLT" << " product not found";
+      //}
       edm::TriggerResultsByName tr = iEvent.triggerResultsByName("HLT");
       //edm::TriggerResultsByName tr = iEvent.triggerResultsByName(*triggerResults);
          //cout << "Names:" << HTLbits_handle.triggerNames();
    
-      //: Dump all triggers         
+      // Dump all triggers         
       //unsigned i=tr.triggerIndex("");
-      //
-      //for (unsigned j=4; j<i; j++){
-      //   std::cout << tr[j].accept() << " : " << tr.triggerName(j) << std::endl;
+      
+      //for (unsigned j=4; j<i-1; j++){
+         //std::cout << j << " : " << tr[j].accept() << " : " << tr.triggerName(j) << std::endl;
+         //std::cout << j-4 << " : " << tr.triggerName(j) << std::endl;
+         //std::cout << '"' << tr.triggerName(j) << '"' << "," << std::endl;
       //}
          
+      
+      
+      for( size_t i=0; i< myEvent.HLT_n; i++){ 
+         //std::cout << tr[dumpHLT_[i]].accept() << " : "<< dumpHLT_[i] << " (" << tr.triggerIndex(dumpHLT_[i]) << ')' << std::endl;
+         myEvent.HLT[i]=tr[dumpHLT_[i]].accept();
          
-      for( size_t i=0; i< dumpHLT_.size(); i++){ 
-         std::cout << dumpHLT_[i] << " (" << tr.triggerIndex(dumpHLT_[i]) << ") : accept " << tr[dumpHLT_[i]].accept()<< std::endl;
       }
 
 
@@ -414,7 +416,7 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       throw cms::Exception("ProductNotFound") << labelJets_ << " product not found";
    
       if (_debug) std::cout << particles->size() << std::endl;
-      myEvent.phot_n=particles->size();
+      myEvent.jet_n=particles->size();
       size_t idx = 0;
       for( JETSCOLLTYPE::const_iterator particle = particles->begin(); 
             particle != particles->end(); ++ particle, ++ idx ) {
@@ -432,6 +434,7 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             myEvent.jet_phi[idx]=particle->phi();
             myEvent.jet_theta[idx]=particle->theta();
             myEvent.jet_eta[idx]=particle->eta();
+            myEvent.jet_btagd[idx]=particle->bDiscriminator(bTagD_);
             //myEvent.jet_nhf = jet.neutralHadronEnergy() / uncorrJet.E();
             //myEvent.jet_nef = jet.neutralEmEnergy() / uncorrJet.E();
             //myEvent.jet_chf = jet.chargedHadronEnergy() / uncorrJet.E();
@@ -449,7 +452,8 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       throw cms::Exception("ProductNotFound") << labelMET_ << " product not found";
    
       if (_debug) std::cout << particles->size() << std::endl;
-      myEvent.phot_n=particles->size();
+      if (particles->size() != 1) throw cms::Exception("nMET != 1");
+      
       size_t idx = 0;
       for( METSCOLLTYPE::const_iterator particle = particles->begin(); 
             particle != particles->end(); ++ particle, ++ idx ) {
@@ -457,16 +461,12 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             if (_debug) LogInfo("nTupleMaker") << "MET #" << idx << ": " 
                  << ", px: " << particle->px()
                  << ", py: " << particle->py()
-                 << ", pz: " << particle->pz()
                  << ", phi: " << particle->phi()
-                 << ", theta: " << particle->theta()
-                 << ", eta: " << particle->eta();
-            myEvent.MET_px[idx]=particle->px();
-            myEvent.MET_py[idx]=particle->py();
-            myEvent.MET_pz[idx]=particle->pz();
-            myEvent.MET_phi[idx]=particle->phi();
-            myEvent.MET_theta[idx]=particle->theta();
-            myEvent.MET_eta[idx]=particle->eta();
+                 << ", theta: " << particle->theta();
+            myEvent.MET_px=particle->px();
+            myEvent.MET_py=particle->py();
+            myEvent.MET_phi=particle->phi();
+            //myEvent.MET_theta=particle->theta();
       }
    } // end jet code block
    
@@ -479,7 +479,7 @@ void
 nTupleMaker::beginJob()
 {
    edm::LogInfo("nTupleMaker") << "Starting";
-   std::cout << "Ntuplize: e " << addElec_ << " : gm " << addPhot_ << " : mu " << addMuons_ << " : j " << addJets_ << " : MET " << addMET_ << " : bT" << addBTag_ << std::endl;
+   std::cout << "Ntuplize: e " << addElec_ << " : gm " << addPhot_ << " : mu " << addMuons_ << " : j " << addJets_ << " : MET " << addMET_ <<  std::endl;
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
