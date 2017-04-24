@@ -11,12 +11,14 @@ nTupler = cms.EDAnalyzer('nTupleMaker',
    addBTag=cms.untracked.bool(False),
    # untracked string fname = "somefile.root"
    labelElec = cms.untracked.string("slimmedElectrons"),
+   ele_ID = cms.untracked.string("cutBasedElectronID-Spring15-25ns-V1-standalone-tight"),
    labelPhot = cms.untracked.string("slimmedPhotons"),
    labelMuons = cms.untracked.string("slimmedMuons"),
+   mu_ID=cms.untracked.string("isTightMuon"),
    labelJets = cms.untracked.string("slimmedJets"),
    labelMET = cms.untracked.string("slimmedMETs"),
    bTagD = cms.untracked.string("pfCombinedInclusiveSecondaryVertexV2BJetTags"),
-   dumpHLT=cms.untracked.vstring("")
+   dumpHLT=cms.untracked.vstring()
 )
 
 

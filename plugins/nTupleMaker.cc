@@ -104,6 +104,8 @@ class nTupleMaker : public edm::EDAnalyzer {
       bool addJets_;
       bool addMET_;
       std::string bTagD_;
+      std::string ele_ID_;
+      std::string mu_ID_;
 
       std::string labelElec_;
       std::string labelPhot_;
@@ -144,6 +146,8 @@ nTupleMaker::nTupleMaker(const edm::ParameterSet& iConfig):
    addJets_(iConfig.getUntrackedParameter<bool>("addJets",0)),
    addMET_(iConfig.getUntrackedParameter<bool>("addMET",0)),
    bTagD_(iConfig.getUntrackedParameter<std::string>("bTagD","")),
+   ele_ID_(iConfig.getUntrackedParameter<std::string>("ele_ID","")),
+   mu_ID_(iConfig.getUntrackedParameter<std::string>("mu_ID","")),
    labelElec_ ( iConfig.getUntrackedParameter<std::string>( "labelElec" ) ),
    labelPhot_ ( iConfig.getUntrackedParameter<std::string>( "labelPhot" ) ),
    labelMuons_ ( iConfig.getUntrackedParameter<std::string>( "labelMuons" ) ),
@@ -176,10 +180,12 @@ nTupleMaker::nTupleMaker(const edm::ParameterSet& iConfig):
       eventTree->Branch("ele_px",myEvent.ele_px,"ele_px[ele_n]/D");
       eventTree->Branch("ele_py",myEvent.ele_py,"ele_py[ele_n]/D");
       eventTree->Branch("ele_pz",myEvent.ele_pz,"ele_pz[ele_n]/D");
+      eventTree->Branch("ele_energy",myEvent.ele_energy,"ele_energy[ele_n]/D");
       eventTree->Branch("ele_phi",myEvent.ele_phi,"ele_phi[ele_n]/D");
       eventTree->Branch("ele_theta",myEvent.ele_theta,"ele_theta[ele_n]/D");
       eventTree->Branch("ele_eta",myEvent.ele_eta,"ele_eta[ele_n]/D");
       eventTree->Branch("ele_id",myEvent.ele_id,"ele_id[ele_n]/D");
+      eventTree->Branch("ele_relIso",myEvent.ele_relIso,"ele_relIso[ele_n]/D");
       
    }
    
@@ -189,6 +195,7 @@ nTupleMaker::nTupleMaker(const edm::ParameterSet& iConfig):
       eventTree->Branch("phot_px",myEvent.phot_px,"phot_px[phot_n]/D");
       eventTree->Branch("phot_py",myEvent.phot_py,"phot_py[phot_n]/D");
       eventTree->Branch("phot_pz",myEvent.phot_pz,"phot_pz[phot_n]/D");
+      eventTree->Branch("phot_energy",myEvent.phot_energy,"phot_energy[phot_n]/D");
       eventTree->Branch("phot_phi",myEvent.phot_phi,"phot_phi[phot_n]/D");
       eventTree->Branch("phot_theta",myEvent.phot_theta,"phot_theta[phot_n]/D");
       eventTree->Branch("phot_eta",myEvent.phot_eta,"phot_eta[phot_n]/D");
@@ -201,14 +208,17 @@ nTupleMaker::nTupleMaker(const edm::ParameterSet& iConfig):
       eventTree->Branch("mu_px",myEvent.mu_px,"mu_px[mu_n]/D");
       eventTree->Branch("mu_py",myEvent.mu_py,"mu_py[mu_n]/D");
       eventTree->Branch("mu_pz",myEvent.mu_pz,"mu_pz[mu_n]/D");
+      eventTree->Branch("mu_energy",myEvent.mu_energy,"mu_energy[mu_n]/D");
       eventTree->Branch("mu_phi",myEvent.mu_phi,"mu_phi[mu_n]/D");
       eventTree->Branch("mu_theta",myEvent.mu_theta,"mu_theta[mu_n]/D");
       eventTree->Branch("mu_eta",myEvent.mu_eta,"mu_eta[mu_n]/D");
+      eventTree->Branch("mu_relIso",myEvent.mu_relIso,"mu_relIso[mu_n]/D");
    }
    
    if (addJets_){
       tok_jets_ = consumes< JETSCOLLTYPE >(edm::InputTag(labelJets_));
       eventTree->Branch("jet_n",&myEvent.jet_n,"jet_n/I");
+      eventTree->Branch("jet_energy",myEvent.jet_energy,"jet_energy[jet_n]/D");
       eventTree->Branch("jet_px",myEvent.jet_px,"jet_px[jet_n]/D");
       eventTree->Branch("jet_py",myEvent.jet_py,"jet_py[jet_n]/D");
       eventTree->Branch("jet_pz",myEvent.jet_pz,"jet_pz[jet_n]/D");
@@ -337,10 +347,12 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             myEvent.ele_px[idx]=ele->px();
             myEvent.ele_py[idx]=ele->py();
             myEvent.ele_pz[idx]=ele->pz();
+            myEvent.ele_energy[idx]=ele->energy();
             myEvent.ele_phi[idx]=ele->phi();
             myEvent.ele_theta[idx]=ele->theta();
             myEvent.ele_eta[idx]=ele->eta();
-            myEvent.ele_id[idx]=ele->electronID("cutBasedElectronID-Spring15-25ns-V1-standalone-tight");
+            myEvent.ele_id[idx]=ele->electronID(ele_ID_);
+            myEvent.ele_relIso[idx]=(ele->dr03TkSumPt()+ele->dr03EcalRecHitSumEt()+ele->dr03HcalTowerSumEt())/ele->et();
       }
    } // end electron code block
    
@@ -367,6 +379,7 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             myEvent.phot_px[idx]=particle->px();
             myEvent.phot_py[idx]=particle->py();
             myEvent.phot_pz[idx]=particle->pz();
+            myEvent.phot_energy[idx]=particle->energy();
             myEvent.phot_phi[idx]=particle->phi();
             myEvent.phot_theta[idx]=particle->theta();
             myEvent.phot_eta[idx]=particle->eta();
@@ -402,9 +415,13 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             myEvent.mu_px[idx]=muon->px();
             myEvent.mu_py[idx]=muon->py();
             myEvent.mu_pz[idx]=muon->pz();
+            myEvent.mu_energy[idx]=muon->energy();
             myEvent.mu_phi[idx]=muon->phi();
             myEvent.mu_theta[idx]=muon->theta();
             myEvent.mu_eta[idx]=muon->eta();
+            myEvent.mu_relIso[idx]=(muon->trackIso()+muon->ecalIso()+muon->hcalIso())/muon->pt(); 
+            myEvent.mu_id[idx]=0.; //muon->muonID(mu_ID_);
+
       }
    } // end muon code block
    
@@ -428,6 +445,7 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
                  << ", phi: " << particle->phi()
                  << ", theta: " << particle->theta()
                  << ", eta: " << particle->eta();
+            myEvent.jet_energy[idx]=particle->energy();
             myEvent.jet_px[idx]=particle->px();
             myEvent.jet_py[idx]=particle->py();
             myEvent.jet_pz[idx]=particle->pz();
@@ -435,6 +453,8 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             myEvent.jet_theta[idx]=particle->theta();
             myEvent.jet_eta[idx]=particle->eta();
             myEvent.jet_btagd[idx]=particle->bDiscriminator(bTagD_);
+//            if (myEvent.jet_btagd[idx] < -10) myEvent.jet_btagd[idx] = -10;
+            if (myEvent.jet_btagd[idx] < -10) std::cout << particle->bDiscriminator(bTagD_) << " " << myEvent.jet_btagd[idx] << std::endl;
             //myEvent.jet_nhf = jet.neutralHadronEnergy() / uncorrJet.E();
             //myEvent.jet_nef = jet.neutralEmEnergy() / uncorrJet.E();
             //myEvent.jet_chf = jet.chargedHadronEnergy() / uncorrJet.E();

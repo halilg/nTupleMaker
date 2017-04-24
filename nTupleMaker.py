@@ -1,8 +1,8 @@
 import FWCore.ParameterSet.Config as cms
 import sys
 
-ifname='file:skim_pat.root'
-ofname='nTuple.root'
+ifname='file:skim_pat_tt.root'
+ofname='nTuple_tt.root'
 
 if len(sys.argv) > 2: ifname=sys.argv[2]
 if len(sys.argv) > 3: ofname=sys.argv[3]
