@@ -26,6 +26,7 @@
 #define PHOTSCOLLTYPE pat::PhotonCollection
 #define JETSCOLLTYPE pat::JetCollection
 #define METSCOLLTYPE pat::METCollection
+#define GENPARTICLECOLL std::vector<reco::GenParticle>
 
 // system include files
 #include <memory>
@@ -38,6 +39,7 @@
 #include "FWCore/Framework/interface/MakerMacros.h"
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "DataFormats/Math/interface/deltaR.h"
 
 //PAT Data types
 #include <DataFormats/PatCandidates/interface/Electron.h>
@@ -57,10 +59,11 @@
 #include "TH1.h"
 #include "TTree.h"
 
-// Added for accessing generator information
+// Generator information
 #include "SimDataFormats/GeneratorProducts/interface/HepMCProduct.h"
 #include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
 #include "SimDataFormats/GeneratorProducts/interface/GenRunInfoProduct.h"
+#include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 
 
 #include "FWCore/Common/interface/TriggerResultsByName.h"
@@ -94,8 +97,12 @@ class nTupleMaker : public edm::EDAnalyzer {
       edm::EDGetTokenT< JETSCOLLTYPE > tok_jets_;
       edm::EDGetTokenT< METSCOLLTYPE > tok_METs_;
       edm::EDGetTokenT< GenEventInfoProduct > tok_gen_;
+      edm::EDGetTokenT< GENPARTICLECOLL > tok_gen_particle;
+
       edm::EDGetTokenT< edm::TriggerResults > tok_HLT_;
       
+
+
       // cfg communication
       //unsigned int minTracks_;
       bool addElec_;
@@ -164,6 +171,8 @@ nTupleMaker::nTupleMaker(const edm::ParameterSet& iConfig):
    //px, py, pz, phi, theta, eta;
 
    tok_gen_ = consumes< GenEventInfoProduct >(edm::InputTag("generator"));
+   tok_gen_particle = consumes< GENPARTICLECOLL >(edm::InputTag("genParticles"));
+
    eventTree->Branch("gen_weight",&myEvent.gen_weight,"gen_weight/D");
 
    if (dumpHLT_.size() > 0){
@@ -270,15 +279,47 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    {
       std::string labelGen_("generator");
       Handle<GenEventInfoProduct> genEvtInfo;
+
+      //iEvent.getByLabel("genParticles", genParticles);
       try{iEvent.getByToken( tok_gen_, genEvtInfo );}
       catch( cms::Exception& ex ) { LogError("nTupleMaker") << "Product: " << labelGen_ << " not found"; }
       if (!genEvtInfo.isValid())
       throw cms::Exception("ProductNotFound: ") << labelGen_ << " product not found";
+
+      Handle<GENPARTICLECOLL> genParticles;
+      iEvent.getByToken( tok_gen_particle, genParticles );
+
    
       //double qScale = genEvtInfo->qScale();  // in case of Pythia6, this will be pypars/pari(23)
       //std::vector<double>& evtWeights = genEvtInfo->weights();
       myEvent.gen_weight = genEvtInfo->weight();
       if (_debug) std::cout << "Weight: " << myEvent.gen_weight << std::endl;
+
+      for(size_t i = 0; i < genParticles->size(); ++ i) {
+     		const reco::GenParticle & p = (*genParticles)[i];
+     		int id = p.pdgId();
+     		int st = p.status();  
+     		const reco::Candidate * mom = p.mother();
+     		double pt = p.pt(), eta = p.eta(), phi = p.phi(), mass = p.mass();
+     		double vx = p.vx(), vy = p.vy(), vz = p.vz();
+     		int charge = p.charge();
+     		int n = p.numberOfDaughters();
+                if (n==3 && id ==25 && pt > 200){
+                	std::cout << i << " id=" << id << ", mass=" <<  mass << ", pt=" << pt << ", nDau=" << n <<std::endl;
+     			for(int j = 0; j < n; ++ j) {
+       				const reco::Candidate * d = p.daughter( j );
+       				int dauId = d->pdgId();
+				if (abs(dauId) == 5) std::cout << i << " id=" << dauId << ", pt=" << d->pt() << std::endl;
+				
+			}
+                       const reco::Candidate & b0 = *(p.daughter(0));
+                       const reco::Candidate & b1 = *(p.daughter(1));
+			std::cout << "DeltaR=" << reco::deltaR(b0, b1) << std::endl;
+		}
+       }
+
+
+
    }
 
    // Trigger bits
