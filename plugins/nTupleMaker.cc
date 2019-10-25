@@ -28,6 +28,7 @@
 #define METSCOLLTYPE pat::METCollection
 #define GENPARTICLECOLL std::vector<reco::GenParticle>
 
+
 // system include files
 #include <memory>
 
@@ -47,6 +48,7 @@
 #include <DataFormats/PatCandidates/interface/Photon.h>
 #include <DataFormats/PatCandidates/interface/MET.h>
 #include <DataFormats/PatCandidates/interface/Jet.h>
+#include <DataFormats/HcalDetId/interface/HcalDetId.h>
 
 // Added for tracks
 #include "DataFormats/TrackReco/interface/Track.h"
@@ -65,6 +67,10 @@
 #include "SimDataFormats/GeneratorProducts/interface/GenRunInfoProduct.h"
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 
+//Jets and calorimetry 
+#include "DataFormats/JetReco/interface/CaloJetCollection.h"
+#include "DataFormats/CaloTowers/interface/CaloTowerCollection.h"
+#include "DataFormats/HcalRecHit/interface/HBHERecHit.h"
 
 #include "FWCore/Common/interface/TriggerResultsByName.h"
 
@@ -97,11 +103,13 @@ class nTupleMaker : public edm::EDAnalyzer {
       edm::EDGetTokenT< JETSCOLLTYPE > tok_jets_;
       edm::EDGetTokenT< METSCOLLTYPE > tok_METs_;
       edm::EDGetTokenT< GenEventInfoProduct > tok_gen_;
-      edm::EDGetTokenT< GENPARTICLECOLL > tok_gen_particle;
-
       edm::EDGetTokenT< edm::TriggerResults > tok_HLT_;
-      
+      edm::EDGetTokenT< GENPARTICLECOLL > tok_gen_particle;
+      edm::EDGetTokenT< reco::CaloJetCollection > tok_caloJet;
+      edm::EDGetTokenT< edm::SortedCollection<CaloTower,edm::StrictWeakOrdering<CaloTower> >  > tok_caloTowers;
+      edm::EDGetTokenT< edm::SortedCollection<HBHERecHit,edm::StrictWeakOrdering<HBHERecHit> >  > tok_HBHERecHit;
 
+      
 
       // cfg communication
       //unsigned int minTracks_;
@@ -118,6 +126,7 @@ class nTupleMaker : public edm::EDAnalyzer {
       std::string labelPhot_;
       std::string labelMuons_;
       std::string labelJets_;
+      std::string labelFatJets_;
       std::string labelMET_;
       vstring dumpHLT_;
       //virtual void beginRun(edm::Run const&, edm::EventSetup const&) override;
@@ -130,6 +139,7 @@ class nTupleMaker : public edm::EDAnalyzer {
       
       event myEvent;
       TTree * eventTree;
+      int eventCounter;
       //static const int maxReco = 30; // need tp check!!!!
       //#define maxReco 30
 };
@@ -146,7 +156,6 @@ class nTupleMaker : public edm::EDAnalyzer {
 // constructors and destructor
 //
 nTupleMaker::nTupleMaker(const edm::ParameterSet& iConfig):
-   //minTracks_(iConfig.getUntrackedParameter<unsigned int>("minTracks",0)),
    addElec_(iConfig.getUntrackedParameter<bool>("addElec",0)),
    addPhot_(iConfig.getUntrackedParameter<bool>("addPhot",0)),
    addMuons_(iConfig.getUntrackedParameter<bool>("addMuons",0)),
@@ -159,11 +168,13 @@ nTupleMaker::nTupleMaker(const edm::ParameterSet& iConfig):
    labelPhot_ ( iConfig.getUntrackedParameter<std::string>( "labelPhot" ) ),
    labelMuons_ ( iConfig.getUntrackedParameter<std::string>( "labelMuons" ) ),
    labelJets_ ( iConfig.getUntrackedParameter<std::string>( "labelJets" ) ),
+   labelFatJets_ ( iConfig.getUntrackedParameter<std::string>( "labelFatJets" ) ),
    labelMET_ ( iConfig.getUntrackedParameter<std::string>( "labelMET" ) ),
    dumpHLT_ ( iConfig.getUntrackedParameter<vstring>( "dumpHLT" ) )
 {
    _debug=0;
    //now do what ever initialization is needed
+   eventCounter=0;
    edm::Service<TFileService> fs;
    eventTree = fs->make<TTree>("Events","Events");
 //   histo = fs->make<TH1D>("charge" , "Charges" , 200 , -2 , 2 );
@@ -172,6 +183,7 @@ nTupleMaker::nTupleMaker(const edm::ParameterSet& iConfig):
 
    tok_gen_ = consumes< GenEventInfoProduct >(edm::InputTag("generator"));
    tok_gen_particle = consumes< GENPARTICLECOLL >(edm::InputTag("genParticles"));
+   tok_caloJet = consumes< reco::CaloJetCollection > (edm::InputTag(labelFatJets_));
 
    eventTree->Branch("gen_weight",&myEvent.gen_weight,"gen_weight/D");
 
@@ -275,6 +287,7 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
    using namespace edm;
 
+   ++eventCounter;
    // Access the gen information
    {
       std::string labelGen_("generator");
@@ -294,17 +307,22 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       //std::vector<double>& evtWeights = genEvtInfo->weights();
       myEvent.gen_weight = genEvtInfo->weight();
       if (_debug) std::cout << "Weight: " << myEvent.gen_weight << std::endl;
+      
+      int i_higgs=0;
 
+      bool goodEvent=false;
       for(size_t i = 0; i < genParticles->size(); ++ i) {
      		const reco::GenParticle & p = (*genParticles)[i];
      		int id = p.pdgId();
-     		int st = p.status();  
-     		const reco::Candidate * mom = p.mother();
+     		//int st = p.status();  
+     		//const reco::Candidate * mom = p.mother();
      		double pt = p.pt(), eta = p.eta(), phi = p.phi(), mass = p.mass();
-     		double vx = p.vx(), vy = p.vy(), vz = p.vz();
-     		int charge = p.charge();
+     		//double vx = p.vx(), vy = p.vy(), vz = p.vz();
+     		//int charge = p.charge();
      		int n = p.numberOfDaughters();
-                if (n==3 && id ==25 && pt > 200){
+                if (n==3 && id ==25 && pt > 300){
+                        i_higgs = i;
+                        std::cout << eventCounter << " is a good event\n";
                 	std::cout << i << " id=" << id << ", mass=" <<  mass << ", pt=" << pt << ", nDau=" << n <<std::endl;
      			for(int j = 0; j < n; ++ j) {
        				const reco::Candidate * d = p.daughter( j );
@@ -315,12 +333,49 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
                        const reco::Candidate & b0 = *(p.daughter(0));
                        const reco::Candidate & b1 = *(p.daughter(1));
 			std::cout << "DeltaR=" << reco::deltaR(b0, b1) << std::endl;
-		}
+                       goodEvent=true;
+                       break;
+		};
        }
 
+   if (!goodEvent) return;
 
+   const reco::GenParticle & higgs = (*genParticles)[i_higgs];
+   std::cout << "Higgs pt=" << higgs.pt() << ", eta=" << higgs.eta() << ", phi=" << higgs.phi() << std::endl;  
 
    }
+
+   // fat calo jets
+
+      Handle<reco::CaloJetCollection> fatJets;
+      iEvent.getByToken( tok_caloJet, fatJets );
+      std::cout << "Event has " << fatJets->size() << " fat jets\n"; 
+      for(size_t i = 0; i < fatJets->size(); ++ i) {
+            const reco::CaloJet & j = (*fatJets)[i];
+            //size_t nConstituents = j.constituentsSize();
+            
+            std::vector <CaloTowerPtr> const& towers = j.getCaloConstituents ();
+            std::cout << "Jet #" << i << " pt=" << j.pt()  << ", eta=" << j.eta() << ", phi=" << j.phi() << ", nCaloTowers=" << towers.size() << std::endl;
+            continue;
+            //if (towers.size() > 0) std::cout << "pt= " << towers[0]->pt() << std::endl;
+            size_t nCaloHits = towers[0]->constituentsSize();
+
+            for (size_t j=0; j< towers.size(); j++){
+            std::cout << "#tower, ncalohits:" << j << ":" << nCaloHits << std::endl;
+            for (size_t i=0; i< nCaloHits; i++){
+               DetId hit = towers[j]->constituent(i);
+               //std::cout << i << " " << hit.det() << ":" << hit() << std::endl;
+               if (hit.det()==4){ // HCAL
+                   try{
+                      HcalDetId hcdet(hit);
+                        
+                      std::cout << "ieta=" << hcdet.ieta() << ", iphi=" << hcdet.iphi() << ", idepth=" << hcdet.depth() << std::endl;
+                   }catch(...){std::cout << "DetID not recognized in HCAL: " << hit() << " " << std::endl;}
+  
+               } else continue;}
+            }
+            break;
+      }
 
    // Trigger bits
    if (dumpHLT_.size() > 0){

@@ -18,6 +18,7 @@ nTupler = cms.EDAnalyzer('nTupleMaker',
    labelJets = cms.untracked.string("slimmedJets"),
    labelMET = cms.untracked.string("slimmedMETs"),
    bTagD = cms.untracked.string("pfCombinedInclusiveSecondaryVertexV2BJetTags"),
+   labelFatJets = cms.untracked.string("ak7CaloJets"),
    dumpHLT=cms.untracked.vstring()
 )
 

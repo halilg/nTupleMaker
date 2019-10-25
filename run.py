@@ -9,8 +9,8 @@ if len(sys.argv) > 3: ofname=sys.argv[3]
 
 print ifname, '->', ofname
 
-skipEvents=0
-maxEvents=-1
+skipEvents=10597
+maxEvents=1
 
 ##########################################################
 
@@ -52,5 +52,6 @@ process.nTupler.addPhot=False
 process.nTupler.addJets=False
 process.nTupler.addMET=False
 #process.nTupler.labelMuons = "globalMuons"
+#process.nTupler.labelFatJets = "ak7CaloJets"
 
 process.p = cms.Path(process.nTupler)
