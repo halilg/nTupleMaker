@@ -386,7 +386,7 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       //if (!triggerResults.isValid()) {
          //throw cms::Exception("ProductNotFound") << "TriggerResults:HLT" << " product not found";
       //}
-      edm::TriggerResultsByName tr = iEvent.triggerResultsByName("HLT");
+      ////edm::TriggerResultsByName tr = iEvent.triggerResultsByName("HLT");
       //edm::TriggerResultsByName tr = iEvent.triggerResultsByName(*triggerResults);
          //cout << "Names:" << HTLbits_handle.triggerNames();
    
@@ -401,11 +401,11 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
          
       
       
-      for( size_t i=0; i< myEvent.HLT_n; i++){ 
+      ////for( size_t i=0; i< myEvent.HLT_n; i++){ 
          //std::cout << tr[dumpHLT_[i]].accept() << " : "<< dumpHLT_[i] << " (" << tr.triggerIndex(dumpHLT_[i]) << ')' << std::endl;
-         myEvent.HLT[i]=tr[dumpHLT_[i]].accept();
-         
-      }
+         ////myEvent.HLT[i]=tr[dumpHLT_[i]].accept();
+         ;
+     //// }
 
 
    }
