@@ -1,7 +1,7 @@
 import FWCore.ParameterSet.Config as cms
 import sys
 
-ifname='file:/afs/cern.ch/work/h/halil/public/Hbb/skim_test.root'
+ifname='file:/afs/cern.ch/user/h/halil/hbb/CMSSW_9_4_15/src/UserCode/nTupleMaker/ak8_test.root'
 ofname='nTuple_test.root'
 
 if len(sys.argv) > 2: ifname=sys.argv[2]
@@ -9,7 +9,7 @@ if len(sys.argv) > 3: ofname=sys.argv[3]
 
 print ifname, '->', ofname
 
-skipEvents=10597
+skipEvents=1
 maxEvents=1
 
 ##########################################################
@@ -52,6 +52,6 @@ process.nTupler.addPhot=False
 process.nTupler.addJets=False
 process.nTupler.addMET=False
 #process.nTupler.labelMuons = "globalMuons"
-#process.nTupler.labelFatJets = "ak7CaloJets"
+process.nTupler.labelFatJets = "ak8CaloJets"
 
 process.p = cms.Path(process.nTupler)

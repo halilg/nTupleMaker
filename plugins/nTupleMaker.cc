@@ -282,6 +282,21 @@ nTupleMaker::~nTupleMaker()
 //
 
 // ------------ method called for each event  ------------
+
+void 
+dumpGenEvent(edm::Handle<GENPARTICLECOLL> genEvt, size_t maxParticles){
+   if (maxParticles == 0) maxParticles = genEvt->size();
+   for(size_t i = 0; i < genEvt->size(); ++ i) {
+         const reco::GenParticle & p = (*genEvt)[i];
+         int id = p.pdgId();
+         //int st = p.status();  
+         double pt = p.pt(), eta = p.eta(), mass = p.mass();
+         int n = p.numberOfDaughters();
+         // PDG Ids: http://pdg.lbl.gov/2019/reviews/rpp2018-rev-monte-carlo-numbering.pdf
+         if (abs(id) == 5 or id==25 ) std::cout << i << " id=" << id << ", mass=" <<  mass << ", pt=" << pt << ", eta=" << eta << ", nDau=" << n <<std::endl;
+    }
+}
+
 void
 nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
@@ -293,7 +308,6 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       std::string labelGen_("generator");
       Handle<GenEventInfoProduct> genEvtInfo;
 
-      //iEvent.getByLabel("genParticles", genParticles);
       try{iEvent.getByToken( tok_gen_, genEvtInfo );}
       catch( cms::Exception& ex ) { LogError("nTupleMaker") << "Product: " << labelGen_ << " not found"; }
       if (!genEvtInfo.isValid())
@@ -301,81 +315,81 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       Handle<GENPARTICLECOLL> genParticles;
       iEvent.getByToken( tok_gen_particle, genParticles );
+      //dumpGenEvent(genParticles, 5000);
 
-   
-      //double qScale = genEvtInfo->qScale();  // in case of Pythia6, this will be pypars/pari(23)
-      //std::vector<double>& evtWeights = genEvtInfo->weights();
       myEvent.gen_weight = genEvtInfo->weight();
       if (_debug) std::cout << "Weight: " << myEvent.gen_weight << std::endl;
       
-      int i_higgs=0;
+      int i_higgs[2]={0,0};
+      int n_higgs=0;
 
-      bool goodEvent=false;
+      //bool goodEvent=false;
       for(size_t i = 0; i < genParticles->size(); ++ i) {
-     		const reco::GenParticle & p = (*genParticles)[i];
-     		int id = p.pdgId();
-     		//int st = p.status();  
-     		//const reco::Candidate * mom = p.mother();
-     		double pt = p.pt(), eta = p.eta(), phi = p.phi(), mass = p.mass();
-     		//double vx = p.vx(), vy = p.vy(), vz = p.vz();
-     		//int charge = p.charge();
-     		int n = p.numberOfDaughters();
-                if (n==3 && id ==25 && pt > 300){
-                        i_higgs = i;
-                        std::cout << eventCounter << " is a good event\n";
-                	std::cout << i << " id=" << id << ", mass=" <<  mass << ", pt=" << pt << ", nDau=" << n <<std::endl;
-     			for(int j = 0; j < n; ++ j) {
-       				const reco::Candidate * d = p.daughter( j );
-       				int dauId = d->pdgId();
-				if (abs(dauId) == 5) std::cout << i << " id=" << dauId << ", pt=" << d->pt() << std::endl;
-				
-			}
-                       const reco::Candidate & b0 = *(p.daughter(0));
-                       const reco::Candidate & b1 = *(p.daughter(1));
-			std::cout << "DeltaR=" << reco::deltaR(b0, b1) << std::endl;
-                       goodEvent=true;
-                       break;
-		};
-       }
+     		 const reco::GenParticle & p = (*genParticles)[i];
+     		 int id = p.pdgId();
+     		 //int st = p.status();  
+     		 //const reco::Candidate * mom = p.mother();
+     		 double pt = p.pt(), eta = p.eta(), mass = p.mass();
+     		 //double vx = p.vx(), vy = p.vy(), vz = p.vz();
+     		 //int charge = p.charge();
+     		 int n = p.numberOfDaughters();
+          if (n==2 && id ==25 && pt > 0){
+               ++n_higgs;
+               i_higgs[n_higgs-1]=i;
+    	         std::cout << i << " id=" << id << ", mass=" <<  mass << ", pt=" << pt << ", eta=" << eta << ", nDau=" << n <<std::endl;
+        			for(int j = 0; j < n; ++ j) {
+          				const reco::Candidate * d = p.daughter( j );
+          				int dauId = d->pdgId();
+   				     if (abs(dauId) == 5) std::cout << i << " id=" << dauId << ", pt=" << d->pt() << std::endl;
+      			}
+               const reco::Candidate & b0 = *(p.daughter(0));
+               const reco::Candidate & b1 = *(p.daughter(1));
+      		   std::cout << "DeltaR=" << reco::deltaR(b0, b1) << std::endl;
+               //goodEvent=true;
+               if(n_higgs==2)break;
+          }
+      }
 
-   if (!goodEvent) return;
-
-   const reco::GenParticle & higgs = (*genParticles)[i_higgs];
-   std::cout << "Higgs pt=" << higgs.pt() << ", eta=" << higgs.eta() << ", phi=" << higgs.phi() << std::endl;  
+      const reco::GenParticle & higgs0 = (*genParticles)[i_higgs[0]];
+      const reco::GenParticle & higgs1 = (*genParticles)[i_higgs[1]];
+      std::cout << "Higgs 0 pt=" << higgs0.pt() << ", eta=" << higgs0.eta() << ", phi=" << higgs0.phi() << std::endl;  
+      std::cout << "Higgs 1 pt=" << higgs1.pt() << ", eta=" << higgs1.eta() << ", phi=" << higgs1.phi() << std::endl;  
 
    }
 
    // fat calo jets
 
-      Handle<reco::CaloJetCollection> fatJets;
-      iEvent.getByToken( tok_caloJet, fatJets );
-      std::cout << "Event has " << fatJets->size() << " fat jets\n"; 
-      for(size_t i = 0; i < fatJets->size(); ++ i) {
-            const reco::CaloJet & j = (*fatJets)[i];
-            //size_t nConstituents = j.constituentsSize();
-            
-            std::vector <CaloTowerPtr> const& towers = j.getCaloConstituents ();
-            std::cout << "Jet #" << i << " pt=" << j.pt()  << ", eta=" << j.eta() << ", phi=" << j.phi() << ", nCaloTowers=" << towers.size() << std::endl;
-            continue;
-            //if (towers.size() > 0) std::cout << "pt= " << towers[0]->pt() << std::endl;
-            size_t nCaloHits = towers[0]->constituentsSize();
+   Handle<reco::CaloJetCollection> fatJets;
+   iEvent.getByToken( tok_caloJet, fatJets );
+   std::cout << "Event has " << fatJets->size() << " fat jets\n"; 
+   for(size_t i = 0; i < 2; ++ i) {
+         const reco::CaloJet & j = (*fatJets)[i];
+         //size_t nConstituents = j.constituentsSize();
+         
+         std::vector <CaloTowerPtr> const& towers = j.getCaloConstituents ();
+         std::cout << "Jet #" << i << " pt=" << j.pt()  << ", eta=" << j.eta() << ", phi=" << j.phi() << ", nCaloTowers=" << towers.size() << std::endl;
+         //continue;
+         //if (towers.size() > 0) std::cout << "pt= " << towers[0]->pt() << std::endl;
+         size_t nCaloHits = towers[0]->constituentsSize();
 
-            for (size_t j=0; j< towers.size(); j++){
-            std::cout << "#tower, ncalohits:" << j << ":" << nCaloHits << std::endl;
-            for (size_t i=0; i< nCaloHits; i++){
-               DetId hit = towers[j]->constituent(i);
-               //std::cout << i << " " << hit.det() << ":" << hit() << std::endl;
-               if (hit.det()==4){ // HCAL
-                   try{
-                      HcalDetId hcdet(hit);
-                        
-                      std::cout << "ieta=" << hcdet.ieta() << ", iphi=" << hcdet.iphi() << ", idepth=" << hcdet.depth() << std::endl;
-                   }catch(...){std::cout << "DetID not recognized in HCAL: " << hit() << " " << std::endl;}
-  
-               } else continue;}
-            }
-            break;
-      }
+         for (size_t j=0; j< towers.size(); j++){
+         std::cout << "#tower:" << j << ", ncalohits:" << ":" << nCaloHits << std::endl;
+         for (size_t i=0; i< nCaloHits; i++){
+            DetId hit = towers[j]->constituent(i);
+            //std::cout << i << " " << hit.det() << ":" << hit() << std::endl;
+            if (hit.det()==4){ // HCAL
+                try{
+                   HcalDetId hcdet(hit);
+                     
+                   std::cout << "ieta=" << hcdet.ieta() << ", iphi=" << hcdet.iphi() << ", idepth=" << hcdet.depth() << std::endl;
+                }catch(...){std::cout << "DetID not recognized in HCAL: " << hit() << " " << std::endl;}
+
+            } else continue;}
+         }
+   }
+
+   // don't go any further
+   return;
 
    // Trigger bits
    if (dumpHLT_.size() > 0){
