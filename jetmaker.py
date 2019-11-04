@@ -17,6 +17,7 @@ outputcmd = (   'drop *',
                 'keep *_caloTowers_*_*',
                 'keep *_towerMaker_*_*',
                 'keep *_towerMakerWithHO_*_*',
+                'keep *_reducedHcalRecHits_*_*', # temporary
                 'keep *_*_hbhereco_*'
             )
 ####### /Configuration #######

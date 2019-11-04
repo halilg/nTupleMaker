@@ -27,7 +27,7 @@
 #define JETSCOLLTYPE pat::JetCollection
 #define METSCOLLTYPE pat::METCollection
 #define GENPARTICLECOLL std::vector<reco::GenParticle>
-
+//#define HBHERECHITCOLL edm::SortedCollection<HBHERecHit> //edm::SortedCollection<HBHERecHit,edm::StrictWeakOrdering<HBHERecHit> >
 
 // system include files
 #include <memory>
@@ -70,8 +70,9 @@
 //Jets and calorimetry 
 #include "DataFormats/JetReco/interface/CaloJetCollection.h"
 #include "DataFormats/CaloTowers/interface/CaloTowerCollection.h"
-#include "DataFormats/HcalRecHit/interface/HBHERecHit.h"
-
+//#include "DataFormats/HcalRecHit/interface/HBHERecHit.h"
+#include "DataFormats/HcalRecHit/interface/HcalRecHitCollections.h"
+//DataFormats/CaloTowers/interface/CaloTowerDetId.h
 #include "FWCore/Common/interface/TriggerResultsByName.h"
 
 // Own source
@@ -107,7 +108,7 @@ class nTupleMaker : public edm::EDAnalyzer {
       edm::EDGetTokenT< GENPARTICLECOLL > tok_gen_particle;
       edm::EDGetTokenT< reco::CaloJetCollection > tok_caloJet;
       edm::EDGetTokenT< edm::SortedCollection<CaloTower,edm::StrictWeakOrdering<CaloTower> >  > tok_caloTowers;
-      edm::EDGetTokenT< edm::SortedCollection<HBHERecHit,edm::StrictWeakOrdering<HBHERecHit> >  > tok_HBHERecHit;
+      edm::EDGetTokenT< HBHERecHitCollection > tok_HBHERecHit;
 
       
 
@@ -184,6 +185,7 @@ nTupleMaker::nTupleMaker(const edm::ParameterSet& iConfig):
    tok_gen_ = consumes< GenEventInfoProduct >(edm::InputTag("generator"));
    tok_gen_particle = consumes< GENPARTICLECOLL >(edm::InputTag("genParticles"));
    tok_caloJet = consumes< reco::CaloJetCollection > (edm::InputTag(labelFatJets_));
+   tok_HBHERecHit = consumes< HBHERecHitCollection > (edm::InputTag("reducedHcalRecHits","hbhereco"));
 
    eventTree->Branch("gen_weight",&myEvent.gen_weight,"gen_weight/D");
 
@@ -297,6 +299,24 @@ dumpGenEvent(edm::Handle<GENPARTICLECOLL> genEvt, size_t maxParticles){
     }
 }
 
+void 
+dumpCaloHits(edm::Handle<HBHERecHitCollection> calohits){
+   std::cout << "nHBHERecHits=" << calohits->size() << std::endl;
+
+   for(size_t i = 0; i < calohits->size(); ++ i) {
+      const HBHERecHit & cal = (*calohits) [i];
+      std::cout << i << " id=" << cal.id() << ", eraw=" << cal.eraw() << std::endl;
+         /*const reco::GenParticle & p = (*genEvt)[i];
+         int id = p.pdgId();
+         //int st = p.status();  
+         double pt = p.pt(), eta = p.eta(), mass = p.mass();
+         int n = p.numberOfDaughters();
+         // PDG Ids: http://pdg.lbl.gov/2019/reviews/rpp2018-rev-monte-carlo-numbering.pdf
+         if (abs(id) == 5 or id==25 ) std::cout << i << " id=" << id << ", mass=" <<  mass << ", pt=" << pt << ", eta=" << eta << ", nDau=" << n <<std::endl;*/
+    }
+}
+
+
 void
 nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
@@ -355,7 +375,7 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       std::cout << "Higgs 0 pt=" << higgs0.pt() << ", eta=" << higgs0.eta() << ", phi=" << higgs0.phi() << std::endl;  
       std::cout << "Higgs 1 pt=" << higgs1.pt() << ", eta=" << higgs1.eta() << ", phi=" << higgs1.phi() << std::endl;  
 
-   }
+   }  
 
    // fat calo jets
 
@@ -363,30 +383,37 @@ nTupleMaker::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    iEvent.getByToken( tok_caloJet, fatJets );
    std::cout << "Event has " << fatJets->size() << " fat jets\n"; 
    for(size_t i = 0; i < 2; ++ i) {
-         const reco::CaloJet & j = (*fatJets)[i];
-         //size_t nConstituents = j.constituentsSize();
-         
-         std::vector <CaloTowerPtr> const& towers = j.getCaloConstituents ();
-         std::cout << "Jet #" << i << " pt=" << j.pt()  << ", eta=" << j.eta() << ", phi=" << j.phi() << ", nCaloTowers=" << towers.size() << std::endl;
-         //continue;
-         //if (towers.size() > 0) std::cout << "pt= " << towers[0]->pt() << std::endl;
-         size_t nCaloHits = towers[0]->constituentsSize();
+      const reco::CaloJet & j = (*fatJets)[i];
+      //size_t nConstituents = j.constituentsSize();
+      
+      std::vector <CaloTowerPtr> const& towers = j.getCaloConstituents ();
+      std::cout << "Jet #" << i << " pt=" << j.pt()  << ", eta=" << j.eta() << ", phi=" << j.phi() << ", nCaloTowers=" << towers.size() << std::endl;
+      //continue;
+      //if (towers.size() > 0) std::cout << "pt= " << towers[0]->pt() << std::endl;
+      size_t nCaloHits = towers[0]->constituentsSize();
 
-         for (size_t j=0; j< towers.size(); j++){
-         std::cout << "#tower:" << j << ", ncalohits:" << ":" << nCaloHits << std::endl;
+      for (size_t j=0; j< towers.size(); j++){
+         std::cout << "#tower:" << j << ", ncalohits:" << ":" << nCaloHits << ", iEta="<< towers[j]->ieta() << ", iPhi=" << towers[j]->iphi() << std::endl;
          for (size_t i=0; i< nCaloHits; i++){
             DetId hit = towers[j]->constituent(i);
             //std::cout << i << " " << hit.det() << ":" << hit() << std::endl;
             if (hit.det()==4){ // HCAL
                 try{
                    HcalDetId hcdet(hit);
-                     
-                   std::cout << "ieta=" << hcdet.ieta() << ", iphi=" << hcdet.iphi() << ", idepth=" << hcdet.depth() << std::endl;
+                   std::cout << hcdet << std::endl;  
+                   //std::cout << "ieta=" << hcdet.ieta() << ", iphi=" << hcdet.iphi() << ", idepth=" << hcdet.depth() << std::endl;
                 }catch(...){std::cout << "DetID not recognized in HCAL: " << hit() << " " << std::endl;}
 
-            } else continue;}
+            } else continue;
          }
+      }
    }
+
+
+   Handle<HBHERecHitCollection> calohits;
+   iEvent.getByToken( tok_HBHERecHit, calohits );
+   dumpCaloHits(calohits);
+
 
    // don't go any further
    return;

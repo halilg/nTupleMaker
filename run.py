@@ -9,7 +9,7 @@ if len(sys.argv) > 3: ofname=sys.argv[3]
 
 print ifname, '->', ofname
 
-skipEvents=1
+skipEvents=4
 maxEvents=1
 
 ##########################################################
